@@ -14,7 +14,7 @@
    under the "gfm_applications" key so nothing is lost while you
    wire up a real backend.
    -------------------------------------------------------------- */
-const FORM_ENDPOINT = ""; // e.g. "https://formspree.io/f/xxxxxxx"
+const FORM_ENDPOINT = "https://api.app.customjs.io/pages/form/submit/29de01bc-9089-4be6-8313-642687111a3a";
 
 (function () {
   "use strict";
@@ -271,59 +271,106 @@ const FORM_ENDPOINT = ""; // e.g. "https://formspree.io/f/xxxxxxx"
     return `GFM-${date.getFullYear()}-${rand}`;
   }
 
-  /* ── Submission ────────────────────────────────────────── */
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!validateStep5()) return;
+/* ── Submission ────────────────────────────────────────── */
+async function handleSubmit(e) {
+  e.preventDefault();
 
-    const submitBtn = document.getElementById("submitBtn");
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Submitting…";
+  if (!validateStep5()) return;
 
-    const assets = selectedAssets();
-    const reference = generateReference();
+  const submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Submitting…";
 
-    const payload = {
-      reference,
-      submittedAt: new Date().toISOString(),
-      fullName: document.getElementById("fullName").value.trim(),
-      email: document.getElementById("email").value.trim(),
-      phone: document.getElementById("phone").value.trim(),
-      country: document.getElementById("country").value,
-      selectedAssets: assets,
-      totalBidUSD: assets.reduce((sum, a) => sum + ASSET_PRICES[a], 0),
-      ndaSignatureDataUrl: signatures.ndaCanvas.dataUrl(),
-      indemnitySignatureDataUrl: signatures.indemnityCanvas.dataUrl(),
-    };
+  const assets = selectedAssets();
+  const totalBidUSD = assets.reduce((sum, a) => sum + ASSET_PRICES[a], 0);
+  const totalBidZAR = Math.round(totalBidUSD * ZAR_RATE);
+  const reference = generateReference();
 
-    // Always keep a local copy so no application is ever lost, even
-    // if FORM_ENDPOINT is unset or a network request fails.
-    try {
-      const existing = JSON.parse(localStorage.getItem("gfm_applications") || "[]");
-      existing.push(payload);
-      localStorage.setItem("gfm_applications", JSON.stringify(existing));
-    } catch (err) {
-      console.warn("Could not persist application to localStorage:", err);
-    }
-    console.log("Founding Member application:", payload);
+  const payload = {
+    // Submission metadata
+    reference,
+    submittedAt: new Date().toISOString(),
+    source: "Gravitas Partners",
+    form: "Founding Members Application",
+    website: window.location.origin,
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 
-    if (FORM_ENDPOINT) {
-      try {
-        await fetch(FORM_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } catch (err) {
-        console.warn("Submission endpoint unreachable, application saved locally instead:", err);
-      }
-    }
+    // Applicant information
+    fullName: document.getElementById("fullName").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    country: document.getElementById("country").value,
 
-    document.getElementById("confirmRef").textContent = `Reference: ${reference}`;
-    showStep(panels.length - 1);
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Submit Application →";
+    // Investment information
+    selectedAssets: assets,
+    selectedAssetNames: assets.map(asset => ASSET_LABELS[asset]),
+    assetCount: assets.length,
+    totalBidUSD,
+    totalBidZAR,
+    exchangeRate: ZAR_RATE,
+
+    // Agreement status
+    ndaSigned: signatures.ndaCanvas.hasSignature(),
+    indemnitySigned: signatures.indemnityCanvas.hasSignature(),
+
+    // Signature images
+    ndaSignatureDataUrl: signatures.ndaCanvas.dataUrl(),
+    indemnitySignatureDataUrl: signatures.indemnityCanvas.dataUrl()
+  };
+
+  // Always keep a local backup
+  try {
+    const existing = JSON.parse(
+      localStorage.getItem("gfm_applications") || "[]"
+    );
+
+    existing.push(payload);
+
+    localStorage.setItem(
+      "gfm_applications",
+      JSON.stringify(existing)
+    );
+  } catch (err) {
+    console.warn("Could not save locally:", err);
   }
+
+  console.log("Founding Member application:", payload);
+
+  if (FORM_ENDPOINT) {
+    try {
+      const response = await fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Submission failed (${response.status})`);
+      }
+
+      console.log("Application submitted successfully.");
+    } catch (err) {
+      console.warn(
+        "Submission failed. Application was saved locally.",
+        err
+      );
+    }
+  }
+
+  document.getElementById(
+    "confirmRef"
+  ).textContent = `Reference: ${reference}`;
+
+  showStep(panels.length - 1);
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = "Submit Application →";
+}
 
   /* ── Init ──────────────────────────────────────────────── */
   document.addEventListener("DOMContentLoaded", () => {
