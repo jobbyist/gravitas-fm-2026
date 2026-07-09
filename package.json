@@ -1,0 +1,26 @@
+{
+  "name": "primary",
+  "version": "1.0.0",
+  "description": "A landing page and application flow for the Gravitas Founding Members Program — a private, 10-seat syndicate offering pooled SPV equity in two Gravitas Industries ventures: **Jobbyist Africa** ($250/seat, 3% pooled equity) and **SkinLabs® South Africa** ($125/seat, 5% pooled equity).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jobbyist/gravitas-fm-2026.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jobbyist/gravitas-fm-2026/issues"
+  },
+  "homepage": "https://github.com/jobbyist/gravitas-fm-2026#readme",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}
